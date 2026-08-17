@@ -136,11 +136,15 @@ backend\venv\Scripts\activate
 source backend/venv/bin/activate
 pip install -r backend/requirements.txt
 
-# Run Migrations
+# Run Migrations (from project root)
 alembic upgrade head
 
 # Start Backend Server (Port 8000)
+# Option A: From project root:
 uvicorn backend.app.main:app --reload --port 8000
+
+# Option B: If your terminal is inside the backend/ folder:
+# uvicorn app.main:app --reload --port 8000
 
 # In a separate terminal, start MCP Server (Port 8001)
 python -m mcp_server.app.server --port 8001

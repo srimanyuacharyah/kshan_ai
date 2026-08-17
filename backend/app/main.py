@@ -1,3 +1,14 @@
+import os
+import sys
+
+# Ensure both project root and backend directory are in sys.path
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+_backend_dir = os.path.abspath(os.path.join(_current_dir, ".."))
+_root_dir = os.path.abspath(os.path.join(_backend_dir, ".."))
+for p in [_root_dir, _backend_dir]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.responses import JSONResponse
