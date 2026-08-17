@@ -1,11 +1,32 @@
 {
-  "venvPath": "backend",
-  "venv": "venv",
+  "include": [
+    "backend",
+    "mcp-server",
+    "mcp_server"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "backend/venv"
+  ],
   "extraPaths": [
     ".",
     "backend",
-    "backend/venv/Lib/site-packages"
+    "backend/venv/Lib/site-packages",
+    "C:/Users/MITM_DEGREE/AppData/Local/Programs/Python/Python313/Lib/site-packages"
   ],
-  "pythonVersion": "3.12",
-  "typeCheckingMode": "basic"
+  "executionEnvironments": [
+    {
+      "root": "backend",
+      "extraPaths": [
+        ".",
+        "backend",
+        "backend/venv/Lib/site-packages",
+        "C:/Users/MITM_DEGREE/AppData/Local/Programs/Python/Python313/Lib/site-packages"
+      ]
+    }
+  ],
+  "pythonVersion": "3.13",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "none"
 }
