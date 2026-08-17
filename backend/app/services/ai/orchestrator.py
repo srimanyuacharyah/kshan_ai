@@ -22,6 +22,7 @@ from backend.app.services.ai.context_builder import context_budget_manager
 from backend.app.services.ai.response_validator import response_validator
 from backend.app.services.ai.rate_limiter import rate_limiter
 from backend.app.services.ai.exceptions import AIGenerationError, ResponseValidationError
+from backend.app.core.security import create_access_token
 from backend.app.services.mcp.exceptions import MCPAuthorizationError
 from backend.app.services.ai.schemas import (
     StoryGenerationResponse,
@@ -240,6 +241,7 @@ class AIOrchestrator:
         """Manifests Future You persona grounded by branch state and memory shards."""
         rate_limiter.check_and_record(user_id)
         start_time = time.perf_counter()
+        auth_token = auth_token or create_access_token(user_id)
         branch = await self._verify_tenant_branch(db, user_id, branch_id)
 
         # 1. RAG Search for memories
@@ -253,13 +255,24 @@ class AIOrchestrator:
         )
 
         # 2. MCP State
-        state_call = await mcp_client.call_tool("get_branch_state", {"branch_id": branch.id}, auth_token=auth_token)
-        branch_state = state_call.data if state_call.success else {"branch_code": branch.branch_code, "entropy": branch.entropy_level, "resonance": branch.resonance_score}
+        default_metrics = {"branch_code": branch.branch_code, "entropy": branch.entropy_level, "resonance": branch.resonance_score}
+        try:
+            state_call = await mcp_client.call_tool("get_branch_state", {"branch_id": branch.id}, auth_token=auth_token)
+            raw_data = state_call.data if state_call.success else {}
+            if isinstance(raw_data, dict):
+                branch_metrics = raw_data.get("metrics", default_metrics)
+                if not isinstance(branch_metrics, dict):
+                    branch_metrics = default_metrics
+            else:
+                branch_metrics = default_metrics
+        except Exception as e:
+            logger.warning(f"MCP get_branch_state fallback: {e}")
+            branch_metrics = default_metrics
 
         # 3. Prompt Construction
         prompt = prompt_builder.build_future_you_prompt(
             user_question=user_question,
-            branch_summary=branch_state.get("metrics", {"branch_code": branch.branch_code, "entropy": branch.entropy_level, "resonance": branch.resonance_score}),
+            branch_summary=branch_metrics,
             grounded_memories=rag_data.context,
             world_name="Neo-Kashi Prime"
         )

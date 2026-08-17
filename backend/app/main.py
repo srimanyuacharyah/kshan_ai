@@ -18,12 +18,25 @@ from backend.app.core.logging import logger
 from backend.app.core.middleware import RequestObservabilityMiddleware
 from backend.app.api.v1.router import api_v1_router, root_router
 
+from backend.app.core.database import engine
+from backend.app.models.base import Base
+import backend.app.models  # Ensure all model tables are registered in Base.metadata
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown hooks."""
     logger.info(f"Initializing {settings.PROJECT_NAME} AI Multiverse Engine in {settings.ENVIRONMENT} mode...")
     logger.info(f"Tagline: {settings.TAGLINE}")
     logger.info(f"Configured Vector Embedding Dimension: {settings.EMBEDDING_DIMENSION}")
+    
+    # Initialize database tables automatically (for SQLite or uninitialized instances)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database schema initialized successfully.")
+    except Exception as e:
+        logger.warning(f"Database schema auto-creation skipped or failed: {e}")
+
     yield
     logger.info(f"Shutting down {settings.PROJECT_NAME} Multiverse Engine...")
 
@@ -37,7 +50,34 @@ app = FastAPI(
     openapi_url="/api/openapi.json"
 )
 
-# Custom Structured Exception Handlers
+from fastapi.exceptions import RequestValidationError
+import json
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    request_id = getattr(request.state, "request_id", "req-unknown")
+    try:
+        body = await request.body()
+        body_json = json.loads(body.decode("utf-8"))
+        if isinstance(body_json, dict) and "password" in body_json:
+            body_json = {**body_json, "password": "[REDACTED]"}
+    except Exception:
+        body_json = "<unparseable>"
+    logger.error(f"[DEBUG 422 VALIDATION ERROR] URL={request.url.path}, Errors={exc.errors()}, Received Body={body_json}")
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "detail": exc.errors(),
+            "error": {
+                "code": "HTTP_422_UNPROCESSABLE_ENTITY",
+                "message": "Request validation failed.",
+                "details": exc.errors(),
+                "request_id": request_id
+            }
+        },
+        headers={"X-Request-ID": request_id}
+    )
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     request_id = getattr(request.state, "request_id", "req-unknown")

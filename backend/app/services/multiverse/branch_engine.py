@@ -166,7 +166,15 @@ class BranchEngine:
         c_res = await db.execute(choice_stmt)
         choice = c_res.scalar_one_or_none()
         if not choice:
-            raise ValueError(f"Choice '{choice_id}' not found.")
+            choice = Choice(
+                id=choice_id,
+                node_id=origin_node.id,
+                choice_label=intention or f"Path ({choice_id})",
+                choice_description=narrative_consequence_proposal or "A divergent step taken into the quantum multiverse.",
+                risk_level="moderate"
+            )
+            db.add(choice)
+            await db.flush()
 
         # 5. Load parent multiverse state
         state_stmt = select(MultiverseState).where(MultiverseState.branch_id == parent_branch.id)

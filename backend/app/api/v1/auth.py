@@ -26,12 +26,16 @@ from backend.app.core.logging import logger
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+import re
+import uuid
+
 @router.post("/register", response_model=StandardResponse[AuthResponse], status_code=status.HTTP_201_CREATED)
 async def register_user(
     request: UserRegisterRequest,
     db: AsyncSession = Depends(get_db)
 ):
     """Register a new user account with isolated tenant identity and initial profile."""
+    logger.info(f"[DEBUG REGISTER] Received parsed request fields: email={request.email}, username={request.username}, display_name={request.display_name}, full_name={request.full_name}")
     # Check existing email
     email_query = select(User).where(User.email == request.email.lower())
     result = await db.execute(email_query)
@@ -41,19 +45,31 @@ async def register_user(
             detail="An account with this email address already exists"
         )
         
+    # Determine username
+    username = request.username
+    if not username:
+        raw_prefix = request.email.split("@")[0]
+        sanitized = re.sub(r"[^a-zA-Z0-9_-]", "_", raw_prefix)[:50]
+        if len(sanitized) < 3:
+            sanitized = f"{sanitized}_voyager"[:50]
+        username = sanitized
+
     # Check existing username
-    username_query = select(User).where(User.username == request.username)
+    username_query = select(User).where(User.username == username)
     result = await db.execute(username_query)
     if result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This username is already taken"
-        )
+        if not request.username:
+            username = f"{username[:40]}_{str(uuid.uuid4())[:8]}"
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This username is already taken"
+            )
         
     # Create User
     new_user = User(
         email=request.email.lower(),
-        username=request.username,
+        username=username,
         hashed_password=get_password_hash(request.password),
         is_active=True,
         is_superuser=False
@@ -62,9 +78,10 @@ async def register_user(
     await db.flush() # Populate new_user.id
     
     # Create Profile
+    display_name = request.display_name or request.full_name or username
     new_profile = UserProfile(
         user_id=new_user.id,
-        display_name=request.display_name or request.username,
+        display_name=display_name,
         bio="Voyager of alternate realities",
         sound_enabled=True,
         preferences={"theme": "obsidian", "ambient_audio": True}

@@ -5,9 +5,10 @@ from backend.app.schemas.common import BaseSchema
 
 class UserRegisterRequest(BaseModel):
     email: EmailStr
-    username: str = Field(..., min_length=3, max_length=50, pattern="^[a-zA-Z0-9_-]+$")
+    username: Optional[str] = Field(None, min_length=3, max_length=50, pattern="^[a-zA-Z0-9_-]+$")
     password: str = Field(..., min_length=6, max_length=100)
     display_name: Optional[str] = Field(None, max_length=100)
+    full_name: Optional[str] = Field(None, max_length=100)
 
 class UserLoginRequest(BaseModel):
     email: EmailStr

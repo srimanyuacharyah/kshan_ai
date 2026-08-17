@@ -59,7 +59,23 @@ class ApiClient {
         let errorMessage = `HTTP Error ${response.status}`;
         try {
           const errData = await response.json();
-          errorMessage = errData.detail || errData.message || errorMessage;
+          if (typeof errData.detail === 'string') {
+            errorMessage = errData.detail;
+          } else if (Array.isArray(errData.detail)) {
+            errorMessage = errData.detail
+              .map(d => {
+                if (typeof d === 'string') return d;
+                const field = d.loc ? d.loc.filter(l => l !== 'body').join('.') : '';
+                return field ? `${field}: ${d.msg}` : d.msg;
+              })
+              .join('; ');
+          } else if (errData.error?.message) {
+            errorMessage = errData.error.message;
+          } else if (errData.message) {
+            errorMessage = errData.message;
+          } else if (typeof errData === 'object') {
+            errorMessage = JSON.stringify(errData);
+          }
         } catch {
           // ignore json parse error
         }
@@ -75,33 +91,43 @@ class ApiClient {
 
   // ---------------- AUTH ----------------
   async login(email, password) {
-    const formData = new URLSearchParams();
-    formData.append('username', email);
-    formData.append('password', password);
-
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
+    const res = await this.request('/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formData
+      body: JSON.stringify({ email, password })
     });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'Login failed. Please check credentials.');
+    const token = res?.data?.token?.access_token || res?.access_token;
+    if (token) {
+      this.setToken(token, true);
     }
-
-    const data = await res.json();
-    if (data.access_token) {
-      this.setToken(data.access_token, true);
-    }
-    return data;
+    return res;
   }
 
   async register(email, password, fullName = 'Voyager') {
-    return this.request('/auth/register', {
+    const rawUsername = email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '_');
+    const username = rawUsername.length >= 3 ? rawUsername : `${rawUsername}_usr`;
+    const payload = {
+      email,
+      password,
+      username,
+      display_name: fullName,
+      full_name: fullName
+    };
+    const url = `${API_BASE_URL}/auth/register`;
+    const safePayload = { ...payload, password: '[REDACTED]' };
+    console.log("REGISTER REQUEST PAYLOAD:", safePayload);
+    console.log("REGISTER REQUEST URL:", url);
+
+    const res = await this.request('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password, full_name: fullName })
+      body: JSON.stringify(payload)
     });
+
+    const token = res?.data?.token?.access_token || res?.access_token;
+    if (token) {
+      this.setToken(token, true);
+    }
+    return res;
   }
 
   async getMe() {

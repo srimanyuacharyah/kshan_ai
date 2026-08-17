@@ -15,6 +15,10 @@ if "sqlite" not in settings.DATABASE_URL:
         "pool_size": 10,
         "max_overflow": 20
     })
+else:
+    engine_kwargs.update({
+        "connect_args": {"check_same_thread": False}
+    })
 
 engine = create_async_engine(
     settings.DATABASE_URL,

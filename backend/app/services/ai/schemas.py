@@ -109,9 +109,10 @@ class BranchGenerationRequest(BaseModel):
     intention: Optional[str] = None
 
 class FutureYouRequest(BaseModel):
-    scenario_id: str
-    branch_id: str
-    user_question: str = Field(..., min_length=3)
+    scenario_id: Optional[str] = None
+    branch_id: Optional[str] = None
+    user_question: Optional[str] = None
+    message: Optional[str] = None
 
 class WorldGenerationRequest(BaseModel):
     scenario_id: str
@@ -126,5 +127,6 @@ class CharacterGenerationRequest(BaseModel):
 class DecisionAnalysisRequest(BaseModel):
     branch_id: str
     node_id: str
-    chosen_choice_id: str
+    chosen_choice_id: Optional[str] = None
+    choice_id: Optional[str] = None
     rationale: Optional[str] = None

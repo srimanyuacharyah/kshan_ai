@@ -86,8 +86,27 @@ class KshanMCPClient:
                     data = first_content
             elif hasattr(res, "data"):
                 data = res.data
+            elif isinstance(res, (tuple, list)):
+                for item in res:
+                    if isinstance(item, dict):
+                        data = item
+                        break
+                    elif hasattr(item, "text"):
+                        try:
+                            data = json.loads(item.text)
+                            break
+                        except Exception:
+                            pass
+                if data is None and len(res) > 0:
+                    data = res[0]
             else:
                 data = res
+
+            if isinstance(data, str):
+                try:
+                    data = json.loads(data)
+                except Exception:
+                    pass
 
             # Check if returned error dict
             if isinstance(data, dict) and "error" in data:

@@ -80,6 +80,9 @@ async def generate_branch(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
+from sqlalchemy import select
+from backend.app.models.multiverse import RealityBranch
+
 @router.post("/future-you", response_model=FutureYouResponse, status_code=status.HTTP_200_OK)
 async def generate_future_you(
     req: FutureYouRequest,
@@ -89,13 +92,39 @@ async def generate_future_you(
 ):
     """Manifest the traveler's alternate future self grounded in reality branch memories."""
     token = authorization.replace("Bearer ", "").strip()
+    
+    user_question = req.user_question or req.message
+    if not user_question or not user_question.strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="user_question must be provided"
+        )
+        
+    branch_id = req.branch_id
+    scenario_id = req.scenario_id
+    
+    if not branch_id:
+        b_stmt = select(RealityBranch).where(RealityBranch.user_id == current_user.id).order_by(RealityBranch.created_at.desc())
+        b_res = await db.execute(b_stmt)
+        latest_b = b_res.scalars().first()
+        if latest_b:
+            branch_id = latest_b.id
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No active reality branch found for traveler. Start a scenario first."
+            )
+            
+    if not scenario_id:
+        scenario_id = "neo-kashi-2042"
+
     try:
         return await ai_orchestrator.generate_future_you(
             db=db,
             user_id=current_user.id,
-            scenario_id=req.scenario_id,
-            branch_id=req.branch_id,
-            user_question=req.user_question,
+            scenario_id=scenario_id,
+            branch_id=branch_id,
+            user_question=user_question,
             auth_token=token
         )
     except MCPAuthorizationError as e:
@@ -154,13 +183,17 @@ async def analyze_decision(
 ):
     """Analyze the systemic and philosophical ramifications of a turning point decision."""
     token = authorization.replace("Bearer ", "").strip()
+    chosen_choice_id = req.chosen_choice_id or req.choice_id
+    if not chosen_choice_id:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="chosen_choice_id is required")
+
     try:
         return await ai_orchestrator.analyze_decision(
             db=db,
             user_id=current_user.id,
             branch_id=req.branch_id,
             node_id=req.node_id,
-            chosen_choice_id=req.chosen_choice_id,
+            chosen_choice_id=chosen_choice_id,
             rationale=req.rationale,
             auth_token=token
         )

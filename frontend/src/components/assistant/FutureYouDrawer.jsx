@@ -4,10 +4,11 @@ import { useMultiverse } from '../../context/MultiverseContext';
 import { api } from '../../services/api';
 
 export default function FutureYouDrawer({ onClose }) {
-  const { activeNode, activeBranch } = useMultiverse();
+  const { activeNode, activeBranch, activeScenario } = useMultiverse();
   const [messages, setMessages] = useState([
     {
       role: 'future_you',
+      identity: 'Future Traveler',
       future_reflection: "I am speaking to you across twenty divergent years. Every choice you are making right now is sculpting the scars and victories I carry.",
       wisdom_shard: "Look not only at the immediate flame, but what it burns to ash.",
       warning: "Do not let haste overpower your discernment at this Kshan.",
@@ -30,27 +31,46 @@ export default function FutureYouDrawer({ onClose }) {
 
     try {
       const res = await api.generateFutureYou({
-        message: userText,
-        timeline_node_id: activeNode?.id,
-        conversation_history: messages.map(m => ({
-          speaker: m.role === 'user' ? 'Traveler' : 'Future You',
-          message: m.role === 'user' ? m.content : m.future_reflection
-        }))
+        scenario_id: activeScenario?.id || 'neo-kashi-2042',
+        branch_id: activeBranch?.id,
+        user_question: userText
       });
 
-      const futureData = res.data;
+      const futureData = res?.data || res || {};
+      const reflection = futureData.message_to_present_self || futureData.future_reflection || "A quantum transmission echoes through the temporal nexus.";
+      
+      let wisdom = null;
+      if (Array.isArray(futureData.achievements) && futureData.achievements.length > 0) {
+        wisdom = futureData.achievements.join(' • ');
+      } else if (futureData.wisdom_shard) {
+        wisdom = futureData.wisdom_shard;
+      } else if (futureData.occupation) {
+        wisdom = `${futureData.occupation} in ${futureData.world || 'Parallel Reality'}`;
+      }
+
+      let warning = null;
+      if (Array.isArray(futureData.regrets) && futureData.regrets.length > 0) {
+        warning = `Regret to avoid: ${futureData.regrets.join(' • ')}`;
+      } else if (futureData.warning) {
+        warning = futureData.warning;
+      }
+
       setMessages(prev => [
         ...prev,
         {
           role: 'future_you',
-          future_reflection: futureData.future_reflection,
-          wisdom_shard: futureData.wisdom_shard,
-          warning: futureData.warning,
-          destiny_coherence: futureData.destiny_coherence
+          identity: futureData.identity || 'Future Traveler',
+          age: futureData.age,
+          world: futureData.world,
+          future_reflection: reflection,
+          wisdom_shard: wisdom,
+          warning: warning,
+          destiny_coherence: 0.92
         }
       ]);
     } catch (err) {
-      setError(err.message || 'Transmission failed across the quantum gulf.');
+      const errStr = typeof err?.message === 'string' ? err.message : 'Transmission failed across the quantum gulf.';
+      setError(errStr);
     } finally {
       setLoading(false);
     }
