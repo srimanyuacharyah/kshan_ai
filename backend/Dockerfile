@@ -35,7 +35,7 @@ ENV PYTHONPATH=/app
 
 # Copy application source code
 COPY --chown=appuser:appgroup backend/ /app/backend/
-COPY --chown=appuser:appgroup alembic.ini /app/
+COPY --chown=appuser:appgroup backend/alembic.ini /app/alembic.ini
 
 # Copy entrypoint script
 COPY --chown=appuser:appgroup backend/docker-entrypoint.sh /app/docker-entrypoint.sh
