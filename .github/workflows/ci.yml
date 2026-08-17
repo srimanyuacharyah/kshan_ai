@@ -67,7 +67,7 @@ jobs:
       - name: Run MCP Server & Client Tests
         env:
           ENVIRONMENT: test
-          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
           JWT_SECRET: kshan_ci_testing_jwt_secret_key
           DEMO_MODE: "true"
         run: |
