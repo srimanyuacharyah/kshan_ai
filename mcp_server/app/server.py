@@ -1,6 +1,35 @@
 import asyncio
 from typing import Dict, Any, Optional, List
-from mcp.server.mcpserver import MCPServer
+try:
+    from mcp.server.mcpserver import MCPServer
+except ImportError:
+    try:
+        from mcp.server.fastmcp import FastMCP
+        class MCPServer(FastMCP):
+            def __init__(self, name: str = "kshan-mcp-server", instructions: Optional[str] = None, version: str = "1.0.0", **kwargs):
+                super().__init__(name=name, instructions=instructions)
+                self.version = version
+    except ImportError:
+        class MCPServer:
+            def __init__(self, name: str = "kshan-mcp-server", instructions: Optional[str] = None, version: str = "1.0.0", **kwargs):
+                self.name = name
+                self.instructions = instructions
+                self.version = version
+                self.tools = {}
+            def tool(self, name: Optional[str] = None, description: Optional[str] = None):
+                def decorator(func):
+                    t_name = name or func.__name__
+                    self.tools[t_name] = func
+                    return func
+                return decorator
+            def resource(self, *args, **kwargs):
+                def decorator(func):
+                    return func
+                return decorator
+            def prompt(self, *args, **kwargs):
+                def decorator(func):
+                    return func
+                return decorator
 from mcp_server.app.config import mcp_settings
 from mcp_server.app.db import get_mcp_db
 
