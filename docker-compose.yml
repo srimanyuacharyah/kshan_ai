@@ -1,0 +1,78 @@
+services:
+  # 1. PostgreSQL Database with pgvector extension
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: kshan-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kshan_db}
+      POSTGRES_USER: ${POSTGRES_USER:-kshan_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kshan_quantum_pass}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kshan_user} -d ${POSTGRES_DB:-kshan_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. KSHAN FastAPI Backend Application
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: kshan-backend
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-kshan_user}:${POSTGRES_PASSWORD:-kshan_quantum_pass}@db:5432/${POSTGRES_DB:-kshan_db}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-kshan-production-jwt-secret-replace-in-env}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-768}
+      MCP_SERVER_URL: http://mcp-server:8001/mcp
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # 3. Model Context Protocol (MCP) Server
+  mcp-server:
+    build:
+      context: .
+      dockerfile: mcp-server/Dockerfile
+    container_name: kshan-mcp-server
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/mcp"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # 4. Cinematic React Frontend (NGINX SPA + Proxy)
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: kshan-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    driver: local
