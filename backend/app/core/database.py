@@ -1,6 +1,6 @@
 from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession  # type: ignore[import-untyped, import-not-found]
+from sqlalchemy.orm import declarative_base  # type: ignore[import-untyped, import-not-found]
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 

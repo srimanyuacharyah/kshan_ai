@@ -1,9 +1,9 @@
 import os
 import sys
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool, text
-from alembic import context
-from pgvector.sqlalchemy import Vector
+from sqlalchemy import engine_from_config, pool, text  # type: ignore[import-untyped, import-not-found]
+from alembic import context  # type: ignore[import-untyped, import-not-found]
+from pgvector.sqlalchemy import Vector  # type: ignore[import-untyped, import-not-found]
 
 # Append project root to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
